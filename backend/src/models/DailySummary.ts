@@ -26,6 +26,15 @@ const dailySummarySchema = new Schema(
     lastLat: { type: Number, default: null },
     lastLng: { type: Number, default: null },
 
+    // Cached road-snapped polyline (lazy: computed on first map view, reused
+    // until new points arrive). snappedRouteCount = how many raw route points it
+    // was built from, used to detect staleness.
+    snappedRoute: {
+      type: [{ latitude: Number, longitude: Number, _id: false }],
+      default: undefined,
+    },
+    snappedRouteCount: { type: Number, default: 0 },
+
     finalized: { type: Boolean, default: false },
   },
   { timestamps: true }

@@ -18,9 +18,8 @@
       android:roundIcon="@mipmap/ic_launcher_round"
       android:allowBackup="false"
       android:theme="@style/AppTheme"
-      android:supportsRtl="true">
-
-      <service
+      android:supportsRtl="true"
+      android:usesCleartextTraffic="true"> <service
           android:name="com.asterinet.react.bgactions.RNBackgroundActionsTask"
           android:foregroundServiceType="location"
           android:exported="false" />

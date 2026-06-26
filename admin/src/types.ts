@@ -84,6 +84,8 @@ export interface EmployeeMap {
   office: { name: string; latitude: number; longitude: number; radius: number };
   current: { latitude: number; longitude: number; speed: number } | null;
   route: { latitude: number; longitude: number; timestamp: string }[];
+  /** Road-snapped version of `route` for drawing the polyline (falls back to `route`). */
+  routePolyline?: { latitude: number; longitude: number }[];
   stops: Stop[];
 }
 

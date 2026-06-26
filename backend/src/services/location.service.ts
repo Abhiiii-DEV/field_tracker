@@ -112,8 +112,11 @@ export async function ingestPoints(userId: string, rawPoints: IncomingPoint[]) {
         const seg = plausibleSegmentMeters(
           { latitude: prevLat, longitude: prevLng },
           { latitude: p.latitude, longitude: p.longitude },
-          elapsedSec
+          elapsedSec,
+          { accuracyM: p.accuracy }
         );
+        // seg > 0 now means genuine movement (cleared the noise/drift filter),
+        // so travel time only accrues while actually moving — not while parked.
         if (seg > 0) {
           addedMeters += seg;
           if (elapsedSec > 0 && elapsedSec <= MAX_TRAVEL_GAP_SEC) {

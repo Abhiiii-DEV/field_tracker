@@ -33,25 +33,30 @@ export function isInsideRadius(point: LatLng, center: LatLng, radiusM: number): 
 }
 
 /**
- * Defensive distance accumulation for a single GPS segment. Rejects implausible
- * jumps (GPS scatter / teleporting fixes) that would otherwise inflate the
- * daily distance total. Returns metres to add (0 if the segment is rejected).
+ * Defensive distance accumulation for a single GPS segment. Rejects movement
+ * that is really just GPS noise — both stationary scatter (a parked phone whose
+ * fixes wander 10-40m in a city) and teleporting fixes — so the daily distance
+ * and travel-time totals don't inflate while someone sits still. Returns metres
+ * to add (0 if the segment is rejected as noise).
  */
 export function plausibleSegmentMeters(
   prev: LatLng,
   next: LatLng,
   elapsedSec: number,
-  opts: { maxSpeedKmh?: number; minMoveM?: number } = {}
+  opts: { maxSpeedKmh?: number; minMoveM?: number; accuracyM?: number; minSpeedKmh?: number } = {}
 ): number {
-  const { maxSpeedKmh = 200, minMoveM = 8 } = opts;
+  const { maxSpeedKmh = 200, minMoveM = 12, accuracyM = 0, minSpeedKmh = 1 } = opts;
   const d = haversineMeters(prev, next);
 
-  // Ignore micro-movement caused by GPS jitter while standing still.
-  if (d < minMoveM) return 0;
+  // A real move must clear both the static jitter floor AND the fix's own
+  // uncertainty: a reading accurate to only ±30m cannot prove a 20m move.
+  const noiseFloor = Math.max(minMoveM, accuracyM);
+  if (d < noiseFloor) return 0;
 
   if (elapsedSec > 0) {
     const speedKmh = (d / elapsedSec) * 3.6;
-    if (speedKmh > maxSpeedKmh) return 0; // implausible jump -> drop
+    if (speedKmh > maxSpeedKmh) return 0; // teleport / bad fix -> drop
+    if (speedKmh < minSpeedKmh) return 0; // drift over a long stationary gap -> drop
   }
   return d;
 }

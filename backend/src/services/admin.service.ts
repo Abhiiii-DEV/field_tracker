@@ -10,6 +10,7 @@ import {
 } from './analytics.service';
 import { getActiveOffice } from './office.service';
 import { AppError } from '../utils/AppError';
+import { snapToRoads } from '../utils/roads';
 
 /** High-level counts for the dashboard overview cards. Reads LiveState only. */
 export async function getDashboardOverview() {
@@ -149,12 +150,41 @@ export async function getEmployeeDetail(userId: string, date = localDateKey()) {
 export async function getEmployeeMap(userId: string, date = localDateKey()) {
   const dayStart = startOfLocalDay(date);
   const dayEnd = endOfLocalDay(date);
-  const [office, state, route, stops] = await Promise.all([
+  const [office, state, route, stops, summary] = await Promise.all([
     getActiveOffice(),
     LiveState.findOne({ userId: new Types.ObjectId(userId) }).lean(),
     getRoute(userId, dayStart, dayEnd),
     getStopsForDay(userId, date),
+    ensureDailySummary(userId, date),
   ]);
+
+  const routePoints = route.map((r) => ({
+    latitude: r.latitude,
+    longitude: r.longitude,
+    timestamp: r.timestamp,
+  }));
+  const rawLatLng = routePoints.map((p) => ({ latitude: p.latitude, longitude: p.longitude }));
+
+  // Road-snapped polyline for drawing, with a lazy per-day cache:
+  //  • cache hit  → the snapped route built from this exact point count is reused (no API call)
+  //  • cache miss → snap now; if it genuinely succeeds, store it for next time
+  //  • snap fails → fall back to raw points and DON'T cache (so a blocked key/quota
+  //    error is retried on the next view rather than frozen as straight lines)
+  let routePolyline = rawLatLng;
+  if (summary.snappedRoute?.length && summary.snappedRouteCount === routePoints.length) {
+    routePolyline = summary.snappedRoute.map((p) => ({
+      latitude: p.latitude as number,
+      longitude: p.longitude as number,
+    }));
+  } else {
+    const snapped = await snapToRoads(rawLatLng);
+    if (snapped) {
+      routePolyline = snapped;
+      summary.set('snappedRoute', snapped);
+      summary.snappedRouteCount = routePoints.length;
+      await summary.save();
+    }
+  }
 
   return {
     office: {
@@ -167,11 +197,8 @@ export async function getEmployeeMap(userId: string, date = localDateKey()) {
       state?.latitude != null
         ? { latitude: state.latitude, longitude: state.longitude, speed: state.speed }
         : null,
-    route: route.map((r) => ({
-      latitude: r.latitude,
-      longitude: r.longitude,
-      timestamp: r.timestamp,
-    })),
+    route: routePoints,
+    routePolyline,
     stops,
   };
 }

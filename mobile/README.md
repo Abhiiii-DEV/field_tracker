@@ -48,7 +48,7 @@ npm install
 #    Edit API_BASE in src/api/client.ts
 #      device on LAN     -> http://<your-pc-ip>:4000
 #      Android emulator  -> http://10.0.2.2:4000
-#      iOS simulator     -> http://localhost:4000
+#      iOS simulator     -> http://:4000
 ```
 
 ## Run

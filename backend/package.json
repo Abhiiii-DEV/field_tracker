@@ -9,6 +9,8 @@
     "build": "tsc -p tsconfig.json",
     "start": "node dist/server.js",
     "seed": "tsx src/seed.ts",
+    "recompute": "tsx src/recompute.ts",
+    "reset-tracking": "tsx src/reset-tracking.ts",
     "typecheck": "tsc --noEmit",
     "lint": "eslint \"src/**/*.ts\""
   },

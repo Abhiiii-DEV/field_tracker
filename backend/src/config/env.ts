@@ -33,6 +33,11 @@ const schema = z.object({
   // Adaptive tracking thresholds (km/h) - shared with mobile via /api/config
   MOVING_SPEED_THRESHOLD_KMH: z.coerce.number().default(3),
 
+  // GPS ping cadence (seconds) shipped to mobile via /api/config. Lower = denser
+  // breadcrumbs / more accurate road tracing, at the cost of battery + data.
+  MOVING_INTERVAL_SEC: z.coerce.number().default(10),
+  STATIONARY_INTERVAL_SEC: z.coerce.number().default(60),
+
   // Retention
   LOCATION_RETENTION_DAYS: z.coerce.number().default(90),
 

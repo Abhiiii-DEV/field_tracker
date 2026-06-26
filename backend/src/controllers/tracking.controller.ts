@@ -50,8 +50,8 @@ export const getClientConfig = asyncHandler(async (_req: Request, res: Response)
     },
     tracking: {
       movingSpeedThresholdKmh: env.MOVING_SPEED_THRESHOLD_KMH,
-      movingIntervalSec: 30,
-      stationaryIntervalSec: 180,
+      movingIntervalSec: env.MOVING_INTERVAL_SEC,
+      stationaryIntervalSec: env.STATIONARY_INTERVAL_SEC,
       stopRadiusM: env.STOP_RADIUS_M,
       stopMinDurationMin: env.STOP_MIN_DURATION_MIN,
     },
