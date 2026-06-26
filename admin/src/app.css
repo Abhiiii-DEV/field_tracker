@@ -263,9 +263,9 @@
 .main-h { flex: 1; overflow: hidden; display: flex; flex-direction: column; }
 
 /* ============ Dashboard ============ */
-.dash { display: flex; flex-direction: column; height: 100%; padding: 18px; gap: 16px; overflow-y: auto; }
+.dash { display: flex; flex-direction: column; height: 100%; padding: 18px; gap: 16px; overflow: hidden; }
 .dash-cards {
-  display: grid; grid-template-columns: repeat(7, 1fr); gap: 12px;
+  display: grid; grid-template-columns: repeat(7, 1fr); gap: 12px; flex-shrink: 0;
 }
 .stat-card {
   background: var(--surface); border: 1px solid var(--border);
@@ -308,6 +308,55 @@
 .dot.off { background: var(--danger); }
 .dot.office { background: var(--positive); }
 .dot.motion { background: var(--accent); }
+
+/* Full-width map as direct child of .dash */
+.dash > .dash-map { height: 380px; min-height: 380px; flex-shrink: 0; padding: 0; overflow: hidden; }
+
+/* ============ All-users table (below the map) ============ */
+/* Card fills the space under the map; only the row list scrolls, so any number
+   of users is reachable while the map + column header stay pinned. */
+.dash-users { flex: 1; min-height: 180px; display: flex; flex-direction: column; overflow: hidden; }
+.dash-users-head {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 14px 18px; border-bottom: 1px solid var(--border-soft);
+  font-weight: 600; font-size: 15px; flex-shrink: 0;
+}
+.du-row.du-row-head { flex-shrink: 0; }
+.du-scroll { flex: 1; min-height: 0; overflow-y: auto; }
+.du-row {
+  display: grid;
+  grid-template-columns: 1.8fr 1fr 0.8fr 1fr 0.7fr 1.4fr 1fr;
+  align-items: center; gap: 12px; width: 100%; text-align: left;
+  background: transparent; border: none; border-bottom: 1px solid var(--border-soft);
+  padding: 13px 18px; transition: background 0.12s; color: var(--text);
+}
+.du-row:last-child { border-bottom: none; }
+.du-row.du-row-head {
+  color: var(--muted-2); font-size: 11px; letter-spacing: 0.09em;
+  text-transform: uppercase; cursor: default; background: var(--surface);
+}
+.du-row:not(.du-row-head):hover { background: var(--surface-2); }
+.du-row.selected { background: var(--surface-2); box-shadow: inset 2px 0 0 var(--accent); }
+.du-user { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.du-name { font-weight: 600; font-size: 14px; }
+.du-email { font-size: 11px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.du-km { color: var(--accent); font-weight: 600; }
+.du-loc { font-size: 12px; color: var(--muted); }
+.du-seen { font-size: 12px; color: var(--muted); }
+
+/* ============ Inline selected-user detail (below table) ============ */
+.dash-detail { position: relative; padding: 20px; }
+.du-detail-close {
+  position: absolute; top: 14px; right: 14px; z-index: 2;
+  width: 30px; height: 30px; border-radius: 999px; border: 1px solid var(--border);
+  background: var(--surface-2); color: var(--text); font-size: 14px; line-height: 1;
+}
+.du-detail-close:hover { background: var(--surface-3); }
+
+@media (max-width: 900px) {
+  .du-row { grid-template-columns: 1.6fr 1fr 1fr; }
+  .du-row > :nth-child(n+4) { display: none; }
+}
 
 /* ============ Detail drawer ============ */
 .drawer-overlay {

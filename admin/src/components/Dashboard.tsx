@@ -1,9 +1,8 @@
 import { useEffect, useState, useCallback } from 'react';
 import FleetMap from './FleetMap';
-import EmployeeDetail from './EmployeeDetail';
 import { getOverview, getEmployees } from '../api/endpoints';
 import { getSocket } from '../realtime/socket';
-import { fmtAgo } from '../utils/format';
+import { fmtAgo, fmtCoord } from '../utils/format';
 import type { Overview, EmployeeCard, LocationUpdate } from '../types';
 
 const cards: { key: keyof Overview; label: string; tone?: string }[] = [
@@ -19,13 +18,12 @@ const cards: { key: keyof Overview; label: string; tone?: string }[] = [
 const statusLabel = (e: EmployeeCard): string =>
   !e.isOnline ? 'Offline' : e.locationStatus === 'INSIDE_OFFICE' ? 'At office' : 'In field';
 
-const dotClass = (e: EmployeeCard): string =>
-  !e.isOnline ? 'off' : e.locationStatus === 'INSIDE_OFFICE' ? 'office' : 'motion';
+const statusTone = (e: EmployeeCard): string =>
+  !e.isOnline ? 'alert' : e.locationStatus === 'INSIDE_OFFICE' ? 'office' : 'motion';
 
-export default function Dashboard() {
+export default function Dashboard({ onOpenUser }: { onOpenUser: (id: string) => void }) {
   const [overview, setOverview] = useState<Overview | null>(null);
   const [employees, setEmployees] = useState<EmployeeCard[]>([]);
-  const [selected, setSelected] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
     const [ov, emps] = await Promise.all([getOverview(), getEmployees()]);
@@ -39,7 +37,7 @@ export default function Dashboard() {
     return () => clearInterval(t);
   }, [refresh]);
 
-  // Live patching from the socket stream (same contract as the old Console).
+  // Live patching from the socket stream.
   useEffect(() => {
     const socket = getSocket();
     const onLocation = (u: LocationUpdate) => {
@@ -79,50 +77,53 @@ export default function Dashboard() {
         ))}
       </div>
 
-      <div className="dash-main">
-        <div className="dash-map card">
-          <FleetMap employees={employees} selectedId={selected} onSelect={setSelected} />
-        </div>
-
-        <aside className="dash-list card">
-          <div className="dash-list-head">
-            <span>Field team</span>
-            <span className="dash-list-count">{employees.length}</span>
-          </div>
-          <div className="dash-list-scroll">
-            {employees.length === 0 && <div className="emp-empty">No employees yet.</div>}
-            {employees.map((e) => (
-              <button
-                key={e._id}
-                className={`fleet-row ${selected === e._id ? 'selected' : ''}`}
-                onClick={() => setSelected(e._id)}
-              >
-                <span className={`dot ${dotClass(e)}`} />
-                <span className="fleet-row-main">
-                  <span className="fleet-row-name">{e.name}</span>
-                  <span className="fleet-row-meta">
-                    {statusLabel(e)} · seen {fmtAgo(e.lastSeenAt)}
-                  </span>
-                </span>
-                <span className="fleet-row-km tele">
-                  {(e.distanceTravelledKm ?? 0).toFixed(1)} km
-                </span>
-              </button>
-            ))}
-          </div>
-        </aside>
+      {/* Live fleet map (full width) */}
+      <div className="dash-map card">
+        <FleetMap employees={employees} selectedId={null} onSelect={onOpenUser} />
       </div>
 
-      {selected && (
-        <div className="drawer-overlay" onClick={() => setSelected(null)}>
-          <div className="drawer" onClick={(e) => e.stopPropagation()}>
-            <button className="drawer-close" onClick={() => setSelected(null)} aria-label="Close">
-              ✕
-            </button>
-            <EmployeeDetail key={selected} employeeId={selected} />
-          </div>
+      {/* All users — per-user distance & stats */}
+      <div className="dash-users card">
+        <div className="dash-users-head">
+          <span>Field team</span>
+          <span className="dash-list-count">{employees.length} users</span>
         </div>
-      )}
+        <div className="du-row du-row-head">
+          <span>User</span>
+          <span>Status</span>
+          <span>Speed</span>
+          <span>Distance today</span>
+          <span>Battery</span>
+          <span>Location</span>
+          <span>Last update</span>
+        </div>
+        <div className="du-scroll">
+          {employees.length === 0 && <div className="emp-empty">No employees yet.</div>}
+          {employees.map((e) => (
+            <button key={e._id} className="du-row" onClick={() => onOpenUser(e._id)}>
+              <span className="du-user">
+                <span className="du-name">{e.name}</span>
+                <span className="du-email tele">{e.email}</span>
+              </span>
+              <span>
+                <span className={`badge ${statusTone(e)}`}>
+                  <span className={`pulse ${e.isOnline ? '' : 'off'}`} />
+                  {statusLabel(e)}
+                </span>
+              </span>
+              <span className="tele">{(e.currentSpeed ?? 0).toFixed(0)} km/h</span>
+              <span className="tele du-km">{(e.distanceTravelledKm ?? 0).toFixed(1)} km</span>
+              <span className="tele">{e.batteryLevel != null ? `${e.batteryLevel}%` : '—'}</span>
+              <span className="tele du-loc">
+                {e.currentLocation
+                  ? fmtCoord(e.currentLocation.latitude, e.currentLocation.longitude)
+                  : '—'}
+              </span>
+              <span className="du-seen">seen {fmtAgo(e.lastSeenAt)}</span>
+            </button>
+          ))}
+        </div>
+      </div>
     </div>
   );
 }
