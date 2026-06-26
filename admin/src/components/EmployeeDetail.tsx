@@ -165,7 +165,7 @@ import { getSocket } from '../realtime/socket';
 import { fmtTime, fmtDuration, fmtCoord, fmtAgo } from '../utils/format';
 import type { EmployeeDetail as Detail, EmployeeMap, TimelineEvent, LocationUpdate } from '../types';
 
-export default function EmployeeDetail({ employeeId }: { employeeId: string }) {
+export default function EmployeeDetail({ employeeId, date }: { employeeId: string; date?: string }) {
   const [detail, setDetail] = useState<Detail | null>(null);
   const [map, setMap] = useState<EmployeeMap | null>(null);
   const [events, setEvents] = useState<TimelineEvent[]>([]);
@@ -176,9 +176,9 @@ export default function EmployeeDetail({ employeeId }: { employeeId: string }) {
     setLoading(true);
     try {
       const [d, m, t] = await Promise.all([
-        getEmployeeDetail(employeeId),
-        getEmployeeMap(employeeId),
-        getEmployeeTimeline(employeeId),
+        getEmployeeDetail(employeeId, date),
+        getEmployeeMap(employeeId, date),
+        getEmployeeTimeline(employeeId, date),
       ]);
       setDetail(d);
       setMap(m);
@@ -189,7 +189,7 @@ export default function EmployeeDetail({ employeeId }: { employeeId: string }) {
     } finally {
       setLoading(false);
     }
-  }, [employeeId]);
+  }, [employeeId, date]);
 
   useEffect(() => {
     void load();

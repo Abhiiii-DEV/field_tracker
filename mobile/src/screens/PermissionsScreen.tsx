@@ -1,7 +1,8 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Linking } from 'react-native';
 import { useAppDispatch, useAppSelector } from '../store';
-import { requestPermissions } from '../store/trackingSlice';
+import { requestPermissions, refreshPermissions } from '../store/trackingSlice';
+import { openAutoStartSettings } from '../services/permissions/power';
 import { theme } from '../theme/theme';
 
 export default function PermissionsScreen() {
@@ -12,6 +13,7 @@ export default function PermissionsScreen() {
     { label: 'Location while using the app', ok: perms.fineLocation },
     { label: 'Background location (always)', ok: perms.backgroundLocation },
     { label: 'Notifications', ok: perms.notifications },
+    { label: 'Allow background running (battery)', ok: perms.batteryUnrestricted },
   ];
 
   return (
@@ -35,8 +37,23 @@ export default function PermissionsScreen() {
         ))}
       </View>
 
+      {!perms.batteryUnrestricted && (
+        <Text style={styles.note}>
+          Tip: if your phone is Xiaomi, Oppo, Vivo, Realme or Samsung, also enable
+          “Auto-start” so tracking keeps running after you close the app.
+        </Text>
+      )}
+
       <TouchableOpacity style={styles.button} onPress={() => void dispatch(requestPermissions())}>
         <Text style={styles.buttonText}>Grant permissions</Text>
+      </TouchableOpacity>
+      <TouchableOpacity
+        onPress={async () => {
+          await openAutoStartSettings();
+          void dispatch(refreshPermissions());
+        }}
+      >
+        <Text style={styles.settingsLink}>Open auto-start settings</Text>
       </TouchableOpacity>
       <TouchableOpacity onPress={() => void Linking.openSettings()}>
         <Text style={styles.settingsLink}>Open app settings instead</Text>
@@ -65,4 +82,8 @@ const styles = StyleSheet.create({
   },
   buttonText: { color: '#1b1205', fontWeight: '700', fontSize: 16 },
   settingsLink: { color: theme.colors.muted, textAlign: 'center', marginTop: 18 },
+  note: {
+    color: theme.colors.muted, fontSize: 13, lineHeight: 19,
+    marginBottom: 20, fontStyle: 'italic',
+  },
 });

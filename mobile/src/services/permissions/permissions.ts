@@ -8,10 +8,14 @@ import {
   Permission,
 } from 'react-native-permissions';
 
+import { isBatteryUnrestricted, requestBatteryUnrestricted } from './power';
+
 export interface PermissionState {
   fineLocation: boolean;
   backgroundLocation: boolean;
   notifications: boolean;
+  /** Android: app exempt from battery optimization so tracking survives swipe-away. */
+  batteryUnrestricted: boolean;
 }
 
 const fineLocationPerm: Permission =
@@ -27,9 +31,10 @@ const backgroundLocationPerm: Permission =
 const granted = (r: string) => r === RESULTS.GRANTED || r === RESULTS.LIMITED;
 
 export async function checkPermissions(): Promise<PermissionState> {
-  const [fine, background] = await Promise.all([
+  const [fine, background, battery] = await Promise.all([
     check(fineLocationPerm),
     check(backgroundLocationPerm),
+    isBatteryUnrestricted(),
   ]);
   // Notifications: best-effort check via request with no prompt isn't available,
   // so we treat a prior grant as the source of truth in the slice.
@@ -37,6 +42,7 @@ export async function checkPermissions(): Promise<PermissionState> {
     fineLocation: granted(fine),
     backgroundLocation: granted(background),
     notifications: true,
+    batteryUnrestricted: battery,
   };
 }
 
@@ -53,9 +59,14 @@ export async function requestAllPermissions(): Promise<PermissionState> {
   }
   const notif = await requestNotifications(['alert', 'sound', 'badge']);
 
+  // Last: ask the OS to exempt us from battery optimization so the tracking
+  // foreground service survives the app being swiped away.
+  const battery = await requestBatteryUnrestricted();
+
   return {
     fineLocation: granted(fine),
     backgroundLocation: granted(background),
     notifications: notif.status === RESULTS.GRANTED,
+    batteryUnrestricted: battery,
   };
 }

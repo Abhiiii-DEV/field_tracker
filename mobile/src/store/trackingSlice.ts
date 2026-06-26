@@ -13,7 +13,12 @@ interface TrackingState {
 }
 
 const initialState: TrackingState = {
-  permissions: { fineLocation: false, backgroundLocation: false, notifications: false },
+  permissions: {
+    fineLocation: false,
+    backgroundLocation: false,
+    notifications: false,
+    batteryUnrestricted: false,
+  },
   isTracking: false,
   stats: null,
   pending: 0,
