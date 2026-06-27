@@ -24,6 +24,7 @@ export default function App() {
   const [unread, setUnread] = useState(0);
   const [view, setView] = useState<View>('dashboard');
   const [activeUser, setActiveUser] = useState<string | null>(null);
+  const [navOpen, setNavOpen] = useState(false); // mobile sidebar drawer
 
   // Clicking a user on the Dashboard opens the dedicated User Info tab.
   const openUser = (id: string) => {
@@ -51,7 +52,23 @@ export default function App() {
   if (!user) return <Login />;
 
   return (
-    <div className="shell-h">
+    <div className={`shell-h${navOpen ? ' nav-open' : ''}`}>
+      {/* Mobile-only top bar with the menu (hamburger) toggle. */}
+      <header className="mobile-topbar">
+        <button
+          className="hamburger"
+          onClick={() => setNavOpen(true)}
+          aria-label="Open menu"
+        >
+          <span /><span /><span />
+        </button>
+        <span className="pulse" />
+        <span className="brand-name">Fleet Console</span>
+      </header>
+
+      {/* Tap-away scrim that closes the mobile drawer. */}
+      <div className="nav-scrim" onClick={() => setNavOpen(false)} />
+
       <aside className="sidebar">
         <div className="sidebar-brand">
           <span className="pulse" />
@@ -63,7 +80,10 @@ export default function App() {
             <button
               key={n.key}
               className={`side-tab ${view === n.key ? 'active' : ''}`}
-              onClick={() => setView(n.key)}
+              onClick={() => {
+                setView(n.key);
+                setNavOpen(false);
+              }}
             >
               <span className="side-ico">{n.icon}</span>
               {n.label}
@@ -72,7 +92,13 @@ export default function App() {
         </nav>
 
         <div className="sidebar-foot">
-          <button className="btn notif-btn" onClick={() => setNotifOpen(true)}>
+          <button
+            className="btn notif-btn"
+            onClick={() => {
+              setNotifOpen(true);
+              setNavOpen(false);
+            }}
+          >
             Alerts
             {unread > 0 && <span className="notif-count tele">{unread}</span>}
           </button>

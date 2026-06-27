@@ -262,6 +262,11 @@
 
 .main-h { flex: 1; overflow: hidden; display: flex; flex-direction: column; }
 
+/* Mobile-only chrome (hidden on desktop; shown in the ≤720px block). */
+.mobile-topbar { display: none; }
+.nav-scrim { display: none; }
+.hamburger { display: none; }
+
 /* ============ Dashboard ============ */
 .dash { display: flex; flex-direction: column; height: 100%; padding: 18px; gap: 16px; overflow: hidden; }
 .dash-cards {
@@ -281,7 +286,7 @@
 
 .dash-main { flex: 1; min-height: 460px; display: grid; grid-template-columns: 1fr 320px; gap: 16px; }
 .dash-map { padding: 0; overflow: hidden; min-height: 460px; }
-.fleet-map { width: 100%; height: 100%; min-height: 460px; }
+.fleet-map { position: relative; width: 100%; height: 100%; overflow: hidden; }
 
 .dash-list { display: flex; flex-direction: column; overflow: hidden; }
 .dash-list-head {
@@ -391,8 +396,52 @@
   .dash-cards { grid-template-columns: repeat(4, 1fr); }
   .dash-main { grid-template-columns: 1fr; }
 }
+
+/* ── Mobile: hamburger menu + off-canvas sidebar + whole-page scroll ── */
 @media (max-width: 720px) {
+  /* Let the whole page scroll instead of locking inner panes. */
+  html, body, #root { height: auto; min-height: 100%; }
+  .shell-h { display: block; height: auto; min-height: 100vh; overflow: visible; }
+  .main-h { height: auto; overflow: visible; display: block; }
+  .dash, .reports, .team, .console { height: auto; overflow: visible; }
+  .dash-users, .du-scroll, .dash-list-scroll, .emp-list-scroll,
+  .console-detail, .reports-body { overflow: visible; }
+  .dash-users { min-height: 0; }
+
+  /* Sticky top bar holding the menu button + brand. */
+  .mobile-topbar {
+    display: flex; align-items: center; gap: 10px;
+    padding: 10px 14px; background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    position: sticky; top: 0; z-index: 30;
+  }
+  .hamburger {
+    display: inline-flex; flex-direction: column; justify-content: center; gap: 4px;
+    width: 40px; height: 38px; padding: 0 9px;
+    background: var(--surface-2); border: 1px solid var(--border);
+    border-radius: var(--radius-sm); cursor: pointer;
+  }
+  .hamburger span { display: block; height: 2px; background: var(--text); border-radius: 2px; }
+
+  /* Sidebar becomes a left drawer, slid out by default. */
+  .sidebar {
+    position: fixed; top: 0; left: 0; height: 100vh; width: 240px;
+    transform: translateX(-100%); transition: transform 0.22s ease;
+    z-index: 60; border-right: 1px solid var(--border);
+  }
+  .shell-h.nav-open .sidebar { transform: translateX(0); }
+
+  /* Tap-away scrim behind the open drawer. */
+  .nav-scrim {
+    display: block; position: fixed; inset: 0; background: rgba(0, 0, 0, 0.5);
+    opacity: 0; pointer-events: none; transition: opacity 0.2s; z-index: 55;
+  }
+  .shell-h.nav-open .nav-scrim { opacity: 1; pointer-events: auto; }
+
+  /* Dashboard: tighter spacing, 2-up cards, shorter map. */
+  .dash { padding: 12px; gap: 12px; }
   .dash-cards { grid-template-columns: repeat(2, 1fr); }
-  .sidebar { width: 64px; }
-  .sidebar .brand-name, .side-tab span:not(.side-ico), .sidebar-user .topbar-user { display: none; }
+  .stat-card { padding: 12px 14px; }
+  .stat-num { font-size: 24px; }
+  .dash > .dash-map { height: 280px; min-height: 280px; }
 }

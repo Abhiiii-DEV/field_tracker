@@ -61,10 +61,21 @@ export default function FleetMap({
           zoom: 13,
           styles: darkStyle,
           disableDefaultUI: false,
-          mapTypeControl: false,
-          streetViewControl: false,
+          // Map / Satellite toggle (same UI as the per-user User Info map).
+          mapTypeControl: true,
+          mapTypeControlOptions: {
+            style: window.google.maps.MapTypeControlStyle.DROPDOWN_MENU,
+            position: window.google.maps.ControlPosition.TOP_LEFT,
+          },
+          streetViewControl: true,
+          // Stack the pegman under the fullscreen button so it stays fully
+          // visible at any map height (RIGHT_CENTER got clipped when short).
+          streetViewControlOptions: {
+            position: window.google.maps.ControlPosition.TOP_RIGHT,
+          },
           fullscreenControl: true,
-          zoomControl: true,
+          // Zoom buttons hidden; scroll / pinch still zooms (greedy gestures).
+          zoomControl: false,
           gestureHandling: 'greedy',
         });
 
@@ -172,7 +183,7 @@ export default function FleetMap({
 
   return (
     <div className="fleet-map">
-      <div ref={mapRef} style={{ width: '100%', height: '100%' }} />
+      <div ref={mapRef} style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }} />
     </div>
   );
 }

@@ -571,9 +571,14 @@ export default function LiveMap({ data, live, fleet = [], activeUser }: { data?:
             style: window.google.maps.MapTypeControlStyle.DROPDOWN_MENU,
             position: window.google.maps.ControlPosition.TOP_LEFT,
           },
-          streetViewControl: true, 
-          fullscreenControl: true, 
-          zoomControl: true,
+          streetViewControl: true,
+          // Stack the pegman under the fullscreen button so it stays fully
+          // visible at any map height (RIGHT_CENTER got clipped when short).
+          streetViewControlOptions: {
+            position: window.google.maps.ControlPosition.TOP_RIGHT,
+          },
+          fullscreenControl: true,
+          zoomControl: false,
           gestureHandling: 'greedy',
         });
 
@@ -746,8 +751,8 @@ export default function LiveMap({ data, live, fleet = [], activeUser }: { data?:
   }, [allEmployees, live, activePath, data]);
 
   return (
-    <div style={{ width: '100%', height: '100%', minHeight: '400px', backgroundColor: '#0e1726', borderRadius: '8px', overflow: 'hidden' }}>
-      <div ref={mapRef} style={{ width: '100%', height: '100%' }}></div>
+    <div style={{ position: 'relative', width: '100%', height: '100%', backgroundColor: '#0e1726', borderRadius: '8px', overflow: 'hidden' }}>
+      <div ref={mapRef} style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }}></div>
     </div>
   );
 }
