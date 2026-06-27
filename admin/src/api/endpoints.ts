@@ -34,15 +34,25 @@ export const getOverview = () => api<Overview>('/api/admin/dashboard/overview');
 export const getEmployees = () =>
   api<{ employees: EmployeeCard[] }>('/api/admin/employees').then((r) => r.employees);
 
-export const getEmployeeDetail = (id: string, date?: string) =>
-  api<EmployeeDetail>(`/api/admin/employees/${id}${date ? `?date=${date}` : ''}`);
+// Build a ?date=&from=&to= query string from whichever filters are set.
+const reportQuery = (date?: string, from?: string, to?: string): string => {
+  const q = new URLSearchParams();
+  if (date) q.set('date', date);
+  if (from) q.set('from', from);
+  if (to) q.set('to', to);
+  const s = q.toString();
+  return s ? `?${s}` : '';
+};
 
-export const getEmployeeMap = (id: string, date?: string) =>
-  api<EmployeeMap>(`/api/admin/employees/${id}/map${date ? `?date=${date}` : ''}`);
+export const getEmployeeDetail = (id: string, date?: string, from?: string, to?: string) =>
+  api<EmployeeDetail>(`/api/admin/employees/${id}${reportQuery(date, from, to)}`);
 
-export const getEmployeeTimeline = (id: string, date?: string) =>
+export const getEmployeeMap = (id: string, date?: string, from?: string, to?: string) =>
+  api<EmployeeMap>(`/api/admin/employees/${id}/map${reportQuery(date, from, to)}`);
+
+export const getEmployeeTimeline = (id: string, date?: string, from?: string, to?: string) =>
   api<{ date: string; events: TimelineEvent[] }>(
-    `/api/admin/employees/${id}/timeline${date ? `?date=${date}` : ''}`
+    `/api/admin/employees/${id}/timeline${reportQuery(date, from, to)}`
   );
 
 export const getNotifications = () =>

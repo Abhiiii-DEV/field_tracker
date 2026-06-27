@@ -4,8 +4,6 @@ const items: { key: keyof Overview; label: string; tone?: string }[] = [
   { key: 'totalEmployees', label: 'Total' },
   { key: 'onlineEmployees', label: 'Online', tone: 'office' },
   { key: 'offlineEmployees', label: 'Offline', tone: 'alert' },
-  { key: 'moving', label: 'Moving', tone: 'motion' },
-  { key: 'stopped', label: 'Stopped' },
   { key: 'insideOffice', label: 'At office', tone: 'office' },
   { key: 'outsideOffice', label: 'In field' },
 ];

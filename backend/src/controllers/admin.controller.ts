@@ -5,6 +5,11 @@ import * as office from '../services/office.service';
 import * as notifications from '../services/notification.service';
 import { localDateKey } from '../services/analytics.service';
 
+// Optional report time-window bound: accept only well-formed "HH:mm", else ignore.
+const TIME_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
+const qTime = (v: unknown): string | undefined =>
+  typeof v === 'string' && TIME_RE.test(v) ? v : undefined;
+
 export const overview = asyncHandler(async (_req: Request, res: Response) => {
   res.json(await admin.getDashboardOverview());
 });
@@ -15,17 +20,23 @@ export const employees = asyncHandler(async (_req: Request, res: Response) => {
 
 export const employeeDetail = asyncHandler(async (req: Request, res: Response) => {
   const date = (req.query.date as string) || localDateKey();
-  res.json(await admin.getEmployeeDetail(req.params.id, date));
+  res.json(
+    await admin.getEmployeeDetail(req.params.id, date, qTime(req.query.from), qTime(req.query.to))
+  );
 });
 
 export const employeeMap = asyncHandler(async (req: Request, res: Response) => {
   const date = (req.query.date as string) || localDateKey();
-  res.json(await admin.getEmployeeMap(req.params.id, date));
+  res.json(
+    await admin.getEmployeeMap(req.params.id, date, qTime(req.query.from), qTime(req.query.to))
+  );
 });
 
 export const employeeTimeline = asyncHandler(async (req: Request, res: Response) => {
   const date = (req.query.date as string) || localDateKey();
-  res.json(await admin.getEmployeeTimeline(req.params.id, date));
+  res.json(
+    await admin.getEmployeeTimeline(req.params.id, date, qTime(req.query.from), qTime(req.query.to))
+  );
 });
 
 // Office

@@ -1,5 +1,5 @@
 import { Types } from 'mongoose';
-import { User, LiveState, Stop, Session, DailySummary, Notification } from '../models';
+import { User, LiveState, Session, DailySummary, Notification } from '../models';
 import { env } from '../config/env';
 import {
   ensureDailySummary,
@@ -11,50 +11,68 @@ import {
 import { getActiveOffice } from './office.service';
 import { AppError } from '../utils/AppError';
 import { snapToRoads } from '../utils/roads';
+import { haversineMeters } from '../utils/geo';
 
-/** High-level counts for the dashboard overview cards. Reads LiveState only. */
+/**
+ * High-level counts for the dashboard overview cards.
+ *
+ * We iterate over the full field-user list (not LiveState) so users who were
+ * created but have never logged in — and therefore have no LiveState — are still
+ * counted (as offline). Each count is decided by its own explicit per-user rule.
+ */
 export async function getDashboardOverview() {
   const staleBefore = new Date(Date.now() - env.OFFLINE_THRESHOLD_SEC * 1000);
 
-  const [totalEmployees, states] = await Promise.all([
-    User.countDocuments({ role: 'salesperson', isActive: true }),
-    LiveState.find()
-      .populate({ path: 'userId', select: 'name role isActive' })
-      .lean(),
-  ]);
+  const users = await User.find({ role: 'salesperson', isActive: true })
+    .select('_id')
+    .lean();
+
+  const states = await LiveState.find({
+    userId: { $in: users.map((u) => u._id) },
+  }).lean();
+  const stateByUser = new Map(states.map((s) => [String(s.userId), s]));
 
   let active = 0;
   let online = 0;
   let offline = 0;
-  let insideOffice = 0;
-  let outsideOffice = 0;
-  let moving = 0;
-  let stopped = 0;
+  let atOffice = 0;
+  let inField = 0;
 
-  for (const s of states) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const u = s.userId as any;
-    if (!u || u.role !== 'salesperson' || !u.isActive) continue;
+  for (const u of users) {
+    const s = stateByUser.get(String(u._id));
 
-    const isOnline = s.isOnline && s.lastSeenAt && new Date(s.lastSeenAt) >= staleBefore;
-    if (s.trackingStatus === 'ACTIVE') active += 1;
-    if (isOnline) online += 1;
-    else offline += 1;
-    if (s.locationStatus === 'INSIDE_OFFICE') insideOffice += 1;
-    else if (s.locationStatus === 'OUTSIDE_OFFICE') outsideOffice += 1;
-    if (isOnline && s.isMoving) moving += 1;
-    else if (isOnline) stopped += 1;
+    if (s?.trackingStatus === 'ACTIVE') active += 1;
+
+    // ONLINE: logged in, tracking active, a fresh ping, and a real GPS fix.
+    const isOnline = !!(
+      s &&
+      s.trackingStatus === 'ACTIVE' &&
+      s.isOnline === true &&
+      s.lastSeenAt &&
+      new Date(s.lastSeenAt) >= staleBefore &&
+      s.locationStatus !== 'UNKNOWN'
+    );
+
+    if (isOnline) {
+      online += 1;
+      // AT OFFICE / IN FIELD only apply to online users (known current position).
+      if (s!.locationStatus === 'INSIDE_OFFICE') atOffice += 1;
+      else if (s!.locationStatus === 'OUTSIDE_OFFICE') inField += 1;
+    } else {
+      // OFFLINE: no LiveState (never completed login), logged out (INACTIVE),
+      // isOnline=false, stale lastSeenAt (GPS off / network / >5 missed pings),
+      // or no GPS fix yet (UNKNOWN).
+      offline += 1;
+    }
   }
 
   return {
-    totalEmployees,
+    totalEmployees: users.length,
     activeEmployees: active,
     onlineEmployees: online,
     offlineEmployees: offline,
-    insideOffice,
-    outsideOffice,
-    moving,
-    stopped,
+    insideOffice: atOffice,
+    outsideOffice: inField,
   };
 }
 
@@ -100,12 +118,19 @@ export async function getEmployeeList() {
 }
 
 /** Full detail for one employee (detail screen). */
-export async function getEmployeeDetail(userId: string, date = localDateKey()) {
+export async function getEmployeeDetail(
+  userId: string,
+  date = localDateKey(),
+  from?: string,
+  to?: string
+) {
   const user = await User.findById(userId).select('name email phone role').lean();
   if (!user || user.role !== 'salesperson') throw AppError.notFound('Employee not found');
 
+  const { start, end, windowed } = resolveWindow(date, from, to);
+
   const staleBefore = new Date(Date.now() - env.OFFLINE_THRESHOLD_SEC * 1000);
-  const [state, summary, stops] = await Promise.all([
+  const [state, summary, dayStops] = await Promise.all([
     LiveState.findOne({ userId: new Types.ObjectId(userId) }).lean(),
     ensureDailySummary(userId, date),
     getStopsForDay(userId, date),
@@ -116,6 +141,22 @@ export async function getEmployeeDetail(userId: string, date = localDateKey()) {
     state.lastSeenAt &&
     new Date(state.lastSeenAt) >= staleBefore
   );
+
+  // When a time window is selected, recompute stats + stops for that window from
+  // raw GPS points; otherwise use the cached whole-day DailySummary as before.
+  const stops = windowed ? stopsInWindow(dayStops, start, end) : dayStops;
+  const today = windowed
+    ? await computeWindowStats(userId, date, start, end, dayStops)
+    : {
+        date,
+        distanceTravelledKm: round2(summary.distanceTravelledKm),
+        travelMinutes: Math.round(summary.travelMinutes),
+        leftOfficeAt: summary.leftOfficeAt,
+        returnedOfficeAt: summary.returnedOfficeAt,
+        stopCount: summary.stopCount,
+        stopDurationMinutes: Math.round(summary.stopDurationMinutes),
+        totalLocationPoints: summary.totalLocationPoints,
+      };
 
   return {
     user: { _id: String(user._id), name: user.name, email: user.email, phone: user.phone ?? null },
@@ -132,31 +173,28 @@ export async function getEmployeeDetail(userId: string, date = localDateKey()) {
       lastSeenAt: state?.lastSeenAt ?? null,
       batteryLevel: state?.batteryLevel ?? null,
     },
-    today: {
-      date,
-      distanceTravelledKm: round2(summary.distanceTravelledKm),
-      travelMinutes: Math.round(summary.travelMinutes),
-      leftOfficeAt: summary.leftOfficeAt,
-      returnedOfficeAt: summary.returnedOfficeAt,
-      stopCount: summary.stopCount,
-      stopDurationMinutes: Math.round(summary.stopDurationMinutes),
-      totalLocationPoints: summary.totalLocationPoints,
-    },
+    today,
     stops,
   };
 }
 
 /** Map payload: office geofence, current position, route polyline, stops. */
-export async function getEmployeeMap(userId: string, date = localDateKey()) {
-  const dayStart = startOfLocalDay(date);
-  const dayEnd = endOfLocalDay(date);
-  const [office, state, route, stops, summary] = await Promise.all([
+export async function getEmployeeMap(
+  userId: string,
+  date = localDateKey(),
+  from?: string,
+  to?: string
+) {
+  const { start, end, windowed } = resolveWindow(date, from, to);
+  const [office, state, route, dayStops, summary] = await Promise.all([
     getActiveOffice(),
     LiveState.findOne({ userId: new Types.ObjectId(userId) }).lean(),
-    getRoute(userId, dayStart, dayEnd),
+    getRoute(userId, start, end),
     getStopsForDay(userId, date),
     ensureDailySummary(userId, date),
   ]);
+
+  const stops = windowed ? stopsInWindow(dayStops, start, end) : dayStops;
 
   const routePoints = route.map((r) => ({
     latitude: r.latitude,
@@ -170,8 +208,13 @@ export async function getEmployeeMap(userId: string, date = localDateKey()) {
   //  • cache miss → snap now; if it genuinely succeeds, store it for next time
   //  • snap fails → fall back to raw points and DON'T cache (so a blocked key/quota
   //    error is retried on the next view rather than frozen as straight lines)
+  // For a custom time window we snap fresh but never read/write the per-day cache,
+  // so windowed views can't corrupt the cached full-day route.
   let routePolyline = rawLatLng;
-  if (summary.snappedRoute?.length && summary.snappedRouteCount === routePoints.length) {
+  if (windowed) {
+    const snapped = await snapToRoads(rawLatLng);
+    if (snapped) routePolyline = snapped;
+  } else if (summary.snappedRoute?.length && summary.snappedRouteCount === routePoints.length) {
     routePolyline = summary.snappedRoute.map((p) => ({
       latitude: p.latitude as number,
       longitude: p.longitude as number,
@@ -204,27 +247,33 @@ export async function getEmployeeMap(userId: string, date = localDateKey()) {
 }
 
 /** Activity timeline: login → left office → stops/movement → returned → logout. */
-export async function getEmployeeTimeline(userId: string, date = localDateKey()) {
-  const dayStart = startOfLocalDay(date);
-  const dayEnd = endOfLocalDay(date);
+export async function getEmployeeTimeline(
+  userId: string,
+  date = localDateKey(),
+  from?: string,
+  to?: string
+) {
+  const { start, end, windowed } = resolveWindow(date, from, to);
 
-  const [summary, stops, sessions, notifications] = await Promise.all([
+  const [summary, dayStops, sessions, notifications] = await Promise.all([
     ensureDailySummary(userId, date),
     getStopsForDay(userId, date),
     Session.find({
       userId: new Types.ObjectId(userId),
-      loginTime: { $gte: dayStart, $lte: dayEnd },
+      loginTime: { $gte: start, $lte: end },
     })
       .sort({ loginTime: 1 })
       .lean(),
     Notification.find({
       userId: new Types.ObjectId(userId),
-      createdAt: { $gte: dayStart, $lte: dayEnd },
+      createdAt: { $gte: start, $lte: end },
       type: { $in: ['LEFT_OFFICE', 'RETURNED_OFFICE'] },
     })
       .sort({ createdAt: 1 })
       .lean(),
   ]);
+
+  const stops = windowed ? stopsInWindow(dayStops, start, end) : dayStops;
 
   type Event = { type: string; at: Date; label: string; meta?: unknown };
   const events: Event[] = [];
@@ -264,4 +313,87 @@ function startOfLocalDay(date: string, offsetMinutes = 330): Date {
 }
 function endOfLocalDay(date: string, offsetMinutes = 330): Date {
   return new Date(new Date(`${date}T23:59:59.999Z`).getTime() - offsetMinutes * 60_000);
+}
+
+/** A local `date` + `HH:mm` clock time → absolute Date (same IST offset). */
+function localDateTime(date: string, time: string, offsetMinutes = 330): Date {
+  return new Date(new Date(`${date}T${time}:00.000Z`).getTime() - offsetMinutes * 60_000);
+}
+
+/**
+ * Resolve the report window for a day. With no `from`/`to` it spans the whole
+ * local day (unchanged behaviour); either bound present narrows it to that time.
+ */
+function resolveWindow(date: string, from?: string, to?: string) {
+  const windowed = !!(from || to);
+  const start = from ? localDateTime(date, from) : startOfLocalDay(date);
+  const end = to ? localDateTime(date, to) : endOfLocalDay(date);
+  return { start, end, windowed };
+}
+
+type DayStop = Awaited<ReturnType<typeof getStopsForDay>>[number];
+
+/** Keep only stops that begin inside [start, end]. */
+function stopsInWindow(stops: DayStop[], start: Date, end: Date): DayStop[] {
+  return stops.filter((s) => {
+    const t = new Date(s.startTime).getTime();
+    return t >= start.getTime() && t <= end.getTime();
+  });
+}
+
+/**
+ * Recompute day stats for an arbitrary time window straight from raw GPS points
+ * (the per-day DailySummary only covers a whole day, so it can't be sliced).
+ *  • distance — sum of great-circle hops between consecutive in-window points
+ *  • travel   — elapsed span of those points minus time spent stopped
+ *  • stops    — stops starting inside the window
+ *  • points   — count of GPS points in the window
+ */
+async function computeWindowStats(
+  userId: string,
+  date: string,
+  start: Date,
+  end: Date,
+  dayStops: DayStop[]
+) {
+  const [route, officeEvents] = await Promise.all([
+    getRoute(userId, start, end),
+    Notification.find({
+      userId: new Types.ObjectId(userId),
+      createdAt: { $gte: start, $lte: end },
+      type: { $in: ['LEFT_OFFICE', 'RETURNED_OFFICE'] },
+    })
+      .sort({ createdAt: 1 })
+      .lean(),
+  ]);
+
+  const stops = stopsInWindow(dayStops, start, end);
+  const stopDurationMinutes = stops.reduce((acc, s) => acc + s.durationMinutes, 0);
+
+  let distanceMeters = 0;
+  for (let i = 1; i < route.length; i++) {
+    distanceMeters += haversineMeters(route[i - 1], route[i]);
+  }
+
+  let travelMinutes = 0;
+  if (route.length >= 2) {
+    const spanMs =
+      new Date(route[route.length - 1].timestamp).getTime() -
+      new Date(route[0].timestamp).getTime();
+    travelMinutes = Math.max(0, spanMs / 60_000 - stopDurationMinutes);
+  }
+
+  const left = officeEvents.find((e) => e.type === 'LEFT_OFFICE');
+  const returned = [...officeEvents].reverse().find((e) => e.type === 'RETURNED_OFFICE');
+
+  return {
+    date,
+    distanceTravelledKm: round2(distanceMeters / 1000),
+    travelMinutes: Math.round(travelMinutes),
+    leftOfficeAt: left ? (left.createdAt as Date) : null,
+    returnedOfficeAt: returned ? (returned.createdAt as Date) : null,
+    stopCount: stops.length,
+    stopDurationMinutes: Math.round(stopDurationMinutes),
+    totalLocationPoints: route.length,
+  };
 }

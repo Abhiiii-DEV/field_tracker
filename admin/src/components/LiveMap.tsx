@@ -4,12 +4,13 @@
 // // We can use your exact key from the GMAP/.env file here
 // const KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY || 'AIzaSyD2CF3PlGBd0tQhusHwX3ngfPaad0pmJ_Q';
 
+
 // export default function LiveMap({ data, live }: { data: EmployeeMap | null; live?: { latitude: number; longitude: number } | null }) {
 //   const mapRef = useRef<HTMLDivElement>(null);
 //   const [info, setInfo] = useState("Loading map…");
   
 //   const mapInstance = useRef<google.maps.Map | null>(null);
-//   const companyMarker = useRef<google.maps.Marker | null>(null);
+//   const compa10:43:23nyMarker = useRef<google.maps.Marker | null>(null);
 //   const userMarker = useRef<google.maps.Marker | null>(null);
 //   const accuracyCircle = useRef<google.maps.Circle | null>(null);
 

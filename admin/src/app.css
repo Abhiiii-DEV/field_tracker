@@ -270,7 +270,7 @@
 /* ============ Dashboard ============ */
 .dash { display: flex; flex-direction: column; height: 100%; padding: 18px; gap: 16px; overflow: hidden; }
 .dash-cards {
-  display: grid; grid-template-columns: repeat(7, 1fr); gap: 12px; flex-shrink: 0;
+  display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; flex-shrink: 0;
 }
 .stat-card {
   background: var(--surface); border: 1px solid var(--border);

@@ -165,7 +165,17 @@ import { getSocket } from '../realtime/socket';
 import { fmtTime, fmtDuration, fmtCoord, fmtAgo } from '../utils/format';
 import type { EmployeeDetail as Detail, EmployeeMap, TimelineEvent, LocationUpdate } from '../types';
 
-export default function EmployeeDetail({ employeeId, date }: { employeeId: string; date?: string }) {
+export default function EmployeeDetail({
+  employeeId,
+  date,
+  from,
+  to,
+}: {
+  employeeId: string;
+  date?: string;
+  from?: string;
+  to?: string;
+}) {
   const [detail, setDetail] = useState<Detail | null>(null);
   const [map, setMap] = useState<EmployeeMap | null>(null);
   const [events, setEvents] = useState<TimelineEvent[]>([]);
@@ -176,9 +186,9 @@ export default function EmployeeDetail({ employeeId, date }: { employeeId: strin
     setLoading(true);
     try {
       const [d, m, t] = await Promise.all([
-        getEmployeeDetail(employeeId, date),
-        getEmployeeMap(employeeId, date),
-        getEmployeeTimeline(employeeId, date),
+        getEmployeeDetail(employeeId, date, from, to),
+        getEmployeeMap(employeeId, date, from, to),
+        getEmployeeTimeline(employeeId, date, from, to),
       ]);
       setDetail(d);
       setMap(m);
@@ -189,7 +199,7 @@ export default function EmployeeDetail({ employeeId, date }: { employeeId: strin
     } finally {
       setLoading(false);
     }
-  }, [employeeId, date]);
+  }, [employeeId, date, from, to]);
 
   useEffect(() => {
     void load();

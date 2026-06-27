@@ -23,8 +23,6 @@ export interface Overview {
   offlineEmployees: number;
   insideOffice: number;
   outsideOffice: number;
-  moving: number;
-  stopped: number;
 }
 
 export type LocationStatus = 'INSIDE_OFFICE' | 'OUTSIDE_OFFICE' | 'UNKNOWN';
