@@ -4,7 +4,7 @@ import type { AuthTokens } from '../types';
 
 // Point this at your backend. For a device on the same LAN use the host's IP.
 // export const API_BASE = 'http://192.168.5.82:4000';
-export const API_BASE = 'http://192.168.5.102:4000';
+export const API_BASE = 'http://192.168.5.113:4000';
 
 const TOKENS_KEY = 'ft_tokens';
 
