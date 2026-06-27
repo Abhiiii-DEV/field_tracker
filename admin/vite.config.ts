@@ -13,13 +13,13 @@
 //     proxy: {
 //       '/api': { 
 //         target: 'http://localhost:4000',
-//         // target: 'https://abhigyan.vmukti.com:4000',
+//         // target: 'https://fieldtracking.vmukti.com:4000',
 
 //         changeOrigin: true,
 //         secure: false // <-- Bypasses TLS translation errors
 //       },
 //       '/socket.io': { 
-//         // target: 'https://abhigyan.vmukti.com:4000', 
+//         // target: 'https://fieldtracking.vmukti.com:4000', 
 //         target: 'http://localhost:4000',
 //         ws: true, 
 //         changeOrigin: true,
@@ -36,7 +36,7 @@ import fs from 'fs';
 export default defineConfig({
   plugins: [react()],
   server: {
-    host: '0.0.0.0', // <-- Opens Vite to your abhigyan.vmukti.com hostname
+    host: '0.0.0.0', // <-- Opens Vite to your fieldtracking.vmukti.com hostname
     port: 5173,
     https: {
       key: fs.readFileSync('/home/abhigyan@ho.adiance.local/Certs/vmukti.key'),
@@ -45,12 +45,12 @@ export default defineConfig({
     proxy: {
       '/api': { 
         target: 'http://localhost:4000',
-        // target: 'https://abhigyan.vmukti.com:4000',
+        // target: 'https://fieldtracking.vmukti.com:4000',
         changeOrigin: true,
         secure: false // <-- Bypasses TLS translation errors
       },
       '/socket.io': { 
-        // target: 'https://abhigyan.vmukti.com:4000', 
+        // target: 'https://fieldtracking.vmukti.com:4000', 
         target: 'http://localhost:4000',
         ws: true, 
         changeOrigin: true,
